@@ -4,20 +4,24 @@ class StoriesController < ApplicationController
   load_and_authorize_resource
   # GET /stories
   # GET /stories.json
+
+  def recent
+    @stories = Story.approved.includes(:tags).where('id > ? and hide = ?', params[:after].to_i, false).order("publish_date desc")
+
+    respond_to do |format|
+      format.js
+    end
+  end
+
   def index
-    @search = Story.search(:include => [:tags]) do
+    @stories = Story.search(:include => [:tags]) do
       without(:publish_date, nil)
       without(:hide, true)
       fulltext params[:search]
+      fulltext params[:tag]
       order_by :publish_date, :desc
-      paginate :page => params[:page], :per_page => 5
-    end
-
-    if params[:tag]
-      @stories = Tag.find_by_name!(params[:tag]).stories.order("publish_date desc").page params[:page]
-    else
-      @stories = @search.results
-    end
+      paginate :page => params[:page], :per_page => 20
+    end.results
 
     respond_to do |format|
       format.html # index.html.erb

@@ -53,20 +53,26 @@ class Story < ActiveRecord::Base
   attr_reader :tag_names
 
   searchable do
+    integer :id
     text :title, boost: 5
     text :content
     text :comments do
       comments.map(&:content)
     end
     time :publish_date
+    time :created_at
     boolean :hide
     text :user do
       user.full_name if user.present?
+      user.email if user.present?
+    end
+    text :tags do
+      tags.map(&:name)
     end
   end
 
   def published?
-    self.publish_date.present? ? true : false
+    publish_date.present? ? true : false
   end
 
   def perform_textcaptcha?

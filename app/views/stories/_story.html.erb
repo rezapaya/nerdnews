@@ -1,7 +1,7 @@
 <!-- cache status of Story -->
 <% status = hide_story?(story) %>
 
-<article <%= "class=grey-out" if status %> >
+<%= content_tag :article, class: "story #{'grey-out' if status}", data: {id: story.id} do %>
   <div class='row'>
     <div class='span1 visible-desktop'>
       <div class='story-image'>
@@ -16,7 +16,7 @@
             <%= content_tag :li, rel: "tooltip", title: tag.name do %>
               <p>
                 <%= link_to stories_url(tag: tag.name) do %>
-                  <%= truncate(tag.name, length: 10) %>
+                  <%= truncate(tag.name, length: 8) %>
                 <% end %>
                 <span class="tag_id_<%= tag.id %> <%= 'yellow' if favored %>">
                   <% if current_user && !favored %>
@@ -47,6 +47,11 @@
             <span>
               <i class='icon-plus' title="امتیاز"></i>
               <%= t('stories.index.point') + story.total_point.to_farsi if story.approved? %>
+            </span>
+
+            <span>
+              <i class='icon-eye-open' title="تعداد نمایش"></i>
+              <%= t('stories.index.views_count') + story.view_counter.to_farsi %>
             </span>
 
             <span>
@@ -88,5 +93,5 @@
       <%= render partial: "stories/story_operation", locals: {story: story} %>
     </div>
   </div>
-</article>
+<% end %>
 <hr />
