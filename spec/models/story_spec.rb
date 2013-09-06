@@ -55,13 +55,45 @@ describe Story do
     it 'should mark stories as hide' do
       story1 = FactoryGirl.create(:story, publish_date: Date.today - 2.day)
       story2 = FactoryGirl.create(:story, publish_date: Date.today - 1.day)
-      story3 = FactoryGirl.create(:story, publish_date: Date.today - 1.day, total_point: -10)
-      story4 = FactoryGirl.create(:approved_story, publish_date: Date.today - 1.day, total_point: -50)
+      story3 = FactoryGirl.create(:story, publish_date: Date.today - 1.day, total_point: -7)
+      story4 = FactoryGirl.create(:approved_story, publish_date: Date.today - 1.day, total_point: -10)
       Story.hide_negative_stories
       expect(story1.reload.hide?).to be_false
       expect(story2.reload.hide?).to be_false
       expect(story3.reload.hide?).to be_false
       expect(story4.reload.hide?).to be_true
+    end
+  end
+
+  context "counter" do
+    before do
+      @story = FactoryGirl.create(:story)
+    end
+
+    it 'should increment counter after creating a comment' do
+      expect do
+        @comment = FactoryGirl.create(:comment, story: @story)
+      end.to change{@story.reload.comments_count}.by(1)
+    end
+
+    it "should not change counter if a comment is a spam" do
+      expect do
+        @comment = FactoryGirl.create(:comment, story: @story, name: "viagra-test-123")
+      end.to_not change{@story.reload.comments_count}
+    end
+
+    it "should decrement comments_counter if comment marked as spam" do
+      @comment = FactoryGirl.create(:comment, story: @story, approved: true)
+      expect do
+        @comment.mark_as_spam
+      end.to change{@story.reload.comments_count}.by(-1)
+    end
+
+    it "should increment comments_counter if comment marked as not spam" do
+      @comment = FactoryGirl.create(:comment, story: @story, approved: false)
+      expect do
+        @comment.mark_as_not_spam
+      end.to change{@story.reload.comments_count}.by(1)
     end
   end
 end

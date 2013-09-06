@@ -3,7 +3,7 @@ class Comment < ActiveRecord::Base
 
   include Rakismet::Model
 
-  HIDE_THRESHOLD = -30
+  HIDE_THRESHOLD = -8
 
   scope :approved, where(approved: true)
 
@@ -11,11 +11,11 @@ class Comment < ActiveRecord::Base
   belongs_to :story, counter_cache: true
   belongs_to :user, counter_cache: true
 
-  attr_accessible :content, :name, :email, :website, :user_id, :parent_id
+  attr_accessible :content, :name, :email, :website, :parent_id
   rakismet_attrs author: :name, author_email: :email, author_url: :website
 
   before_validation :smart_add_url_protocol
-  before_create :is_spam?
+  before_save :is_spam?, :update_counter
 
   validates :name, :content, :user_ip, :user_agent, :referrer, presence: true
   validates :email, email_format: true, presence: true
@@ -45,7 +45,8 @@ class Comment < ActiveRecord::Base
 
   def mark_as_not_spam
     self.ham!
-    self.update_attribute approved: true
+    self.update_attribute :approved, true
+    Story.increment_counter :comments_count, story.id
   end
 
   def votes_sum
@@ -59,7 +60,6 @@ class Comment < ActiveRecord::Base
     recent_comments = where(created_at: (Time.now.midnight - 1.day)..Time.now.midnight)
     recent_comments.each do |comment|
       comment.update_attribute :approved, false if comment.total_point < Comment::HIDE_THRESHOLD
-      comment.index!
     end
   end
 
@@ -76,5 +76,11 @@ class Comment < ActiveRecord::Base
     def is_spam?
       self.approved = !self.spam?
       true # Send True to not prevent from saving record
+    end
+
+    def update_counter
+      unless approved
+        Story.decrement_counter :comments_count, story.id
+      end
     end
 end

@@ -2,7 +2,7 @@ class MypageController < ApplicationController
   authorize_resource :class => false
 
   def index
-    @stories = Story.search(:include => [:tags]) do
+    @stories = Story.search(:include => [:tags, :user, :publisher, {:votes => [:rating, :user]} ]) do
       fulltext params[:search]
       without(:hide, true)
       keywords("#{favorite_tags.join(' ')} #{current_user.email}") {minimum_match 1}
@@ -10,6 +10,10 @@ class MypageController < ApplicationController
       order_by :publish_date, :desc
       paginate :page => params[:page], :per_page => 20
     end.results
+
+    @share_by_mail = ShareByMail.new(current_user)
+    @share_by_mail.textcaptcha
+    bypass_captcha_or_not @share_by_mail
 
     respond_to do |format|
       if !@stories || @stories.empty?
@@ -24,6 +28,6 @@ class MypageController < ApplicationController
   private
 
   def favorite_tags
-    current_user.favorite_tags_array ? current_user.favorite_tags_array : []
+    current_user.favorite_tags ? current_user.favored_tags.to_a : []
   end
 end

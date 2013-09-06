@@ -1,5 +1,11 @@
 require "bundler/capistrano"
 require "delayed/recipes"
+require 'capistrano/maintenance'
+
+# recipes for whenever gem
+set :whenever_command, "bundle exec whenever"
+set :whenever_environment, defer { "production" }
+require "whenever/capistrano"
 
 server "server.jnaqsh.com", :web, :app, :db, primary: true
 
@@ -24,11 +30,11 @@ default_run_options[:pty] = true
 ssh_options[:forward_agent] = true
 
 after "deploy", "deploy:cleanup" # keep only the last 5 releases
+after "deploy:update", "delayed_job:restart"
 after "deploy:stop",    "delayed_job:stop"
 after "deploy:start",   "delayed_job:start"
 after "deploy:start", "solr:start"
 after "deploy:stop", "solr:stop"
-after "deploy:restart", "delayed_job:restart"
 
 namespace :deploy do
   desc "reload the database with seed data"
@@ -54,13 +60,15 @@ namespace :deploy do
     sudo "ln -nfs #{current_path}/config/nginx.conf /opt/nginx/sites-enabled/#{application}"
     run "mkdir -p #{shared_path}/config"
     run "mkdir -p #{shared_path}/db"
+    run "mkdir -p #{shared_path}/db_backup"
     put File.read("config/database.example.yml"), "#{shared_path}/config/database.yml"
     put File.read("config/application_configs.example.yml"), "#{shared_path}/config/application_configs.yml"
     put File.read("config/sunspot.example.yml"), "#{shared_path}/config/sunspot.yml"
     put File.read("config/textcaptcha.example.yml"), "#{shared_path}/config/textcaptcha.yml"
     put File.read("config/dropbox.example.yml"), "#{shared_path}/config/dropbox.yml"
+    put File.read("config/dropbox_backup.example.yml"), "#{shared_path}/config/dropbox_backup.yml"
     put File.read("config/twitter.example.yml"), "#{shared_path}/config/twitter.yml"
-    FileUtils.touch "#{shared_path}/db/under_construction_mails.txt"
+    run "touch #{shared_path}/db/under_construction_mails.txt"
     puts "Now edit the config files in #{shared_path}."
   end
   after "deploy:setup", "deploy:setup_config"
@@ -72,7 +80,9 @@ namespace :deploy do
     run "ln -nfs #{shared_path}/config/textcaptcha.yml #{release_path}/config/textcaptcha.yml"
     run "ln -nfs #{shared_path}/config/twitter.yml #{release_path}/config/twitter.yml"
     run "ln -nfs #{shared_path}/config/dropbox.yml #{release_path}/config/dropbox.yml"
+    run "ln -nfs #{shared_path}/config/dropbox_backup.yml #{release_path}/config/dropbox_backup.yml"
     run "ln -nfs #{shared_path}/db/under_construction_mails.txt #{release_path}/db/under_construction_mails.txt"
+    run "ln -nfs #{shared_path}/db_backup #{release_path}/db/db_backup"
   end
   after "deploy:finalize_update", "deploy:symlink_config"
 
@@ -92,7 +102,7 @@ namespace :deploy do
     run "cd #{release_path}; RAILS_ENV=production bundle exec rake paperclip:refresh:missing_styles"
   end
 
-  after "deploy:migrate", "deploy:build_missing_paperclip_styles"
+#  after "deploy:migrate", "deploy:build_missing_paperclip_styles"
 end
 
 namespace :deploy do
@@ -104,11 +114,11 @@ end
 namespace :solr do
   desc "start solr"
   task :start, :roles => :app, :except => { :no_release => true } do
-    run "cd #{current_path} && RAILS_ENV=#{rails_env} bundle exec sunspot-solr start --port=8983 --data-directory=#{shared_path}/solr/data --pid-dir=#{shared_path}/pids"
+    run "cd #{current_path} && RAILS_ENV=#{rails_env} bundle exec sunspot-solr start --port=8983 --data-directory=#{shared_path}/solr/data --pid-dir=#{shared_path}/pids --solr-home=#{current_path}/solr"
   end
   desc "stop solr"
   task :stop, :roles => :app, :except => { :no_release => true } do
-    run "cd #{current_path} && RAILS_ENV=#{rails_env} bundle exec sunspot-solr stop --port=8983 --data-directory=#{shared_path}/solr/data --pid-dir=#{shared_path}/pids"
+    run "cd #{current_path} && RAILS_ENV=#{rails_env} bundle exec sunspot-solr stop --port=8983 --data-directory=#{shared_path}/solr/data --pid-dir=#{shared_path}/pids --solr-home=#{current_path}/solr"
   end
   desc "reindex the whole database"
   task :reindex, :roles => :app do

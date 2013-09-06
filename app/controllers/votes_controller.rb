@@ -1,15 +1,18 @@
+#encoding: utf-8
+
 class VotesController < ApplicationController
   load_and_authorize_resource
 
   def create
     begin
-      @voteable = get_voteable
-      @rating = Rating.find(params[:rating_id])
-      @user = current_user
-      @vote = Vote.new()
-      @vote.voteable = @voteable
-      @vote.rating = @rating
-      @vote.user = @user
+      @rating         = Rating.find(params[:rating_id])
+      @user           = current_user
+      @vote           = Vote.new()
+      voteable_helper = VoteableHelper.new(params, @vote)
+      @voteable       = voteable_helper.voteable_object
+      @vote.voteable  = @voteable
+      @vote.rating    = @rating
+      @vote.user      = @user
     rescue ActiveRecord::RecordNotFound
       redirect_to stories_path, flash:{error: t('controllers.votes.create.flash.error')}
       return
@@ -19,8 +22,10 @@ class VotesController < ApplicationController
 
     respond_to do |format|
       if @vote.save
-        increment_votes_count(@voteable, type)
-        calculate_total_point(@voteable, @vote)
+        record_log(@voteable, @vote)
+
+        voteable_helper.increment_votes_count(type)
+        voteable_helper.calculate_total_point
         rate_user 1
         format.html { redirect_to story_path(@voteable), notice: t('controllers.votes.create.flash.success') }
         format.js
@@ -31,25 +36,14 @@ class VotesController < ApplicationController
   end
 
 private
-  def get_voteable
-    @voteable = params[:voteable].classify.constantize.find(voteable_id)
-  end
+  def record_log(voteable, vote)
+    vote = vote.reload
 
-  def voteable_id
-    params[(params[:voteable].singularize + "_id").to_sym]
-  end
-
-  # TODO: Move this method to somewhere else
-  def increment_votes_count(voteable, type = nil)
-    if type
-      voteable.increment! :positive_votes_count
-    else
-      voteable.increment! :negative_votes_count
+    if voteable.class.name == "Story"
+      record_activity %Q(به خبر #{view_context.link_to voteable.title.truncate(40), story_path(voteable)} امتیاز #{vote.rating.name} را داد)
+    elsif voteable.class.name == "Comment"
+      record_activity %Q(به دیدگاه #{view_context.link_to voteable.content.truncate(40), story_path(voteable.story, :anchor => "comment_#{voteable.id}")} امتیاز #{vote.rating.name} را داد)
     end
   end
 
-  # TODO: Move this method to somewhere else
-  def calculate_total_point(voteable, vote)
-    voteable.increment! :total_point, vote.rating.weight
-  end
 end

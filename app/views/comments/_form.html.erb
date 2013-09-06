@@ -1,6 +1,4 @@
-<%= simple_form_for [@story, @comment], :html => { :class => '' } do |f| %>
-<div class='comment-form'>
-
+<%= simple_form_for [@story, @comment], :html => { :class => '' }, remote: true do |f| %>
   <div class='row'>
     <div class='span6'>
 
@@ -31,7 +29,7 @@
           /
           <%= link_to t('shared.header.register'), new_user_path %>
         </p>
-        <%= f.submit nil, :class => 'btn btn-primary' %>
+        <%= f.submit nil, :class => 'btn btn-primary', data: { disable_with: t('view.disable_with') } %>
       </div>
 
     <% elsif ["edit", "update"].include?(params[:action]) %>
@@ -45,11 +43,11 @@
 
       </div>
 
-        <div class='span2' style='text-align: center'>
-          <%= image_tag avatar_url(current_user, 64), class: 'img-polaroid' %>
-          <p><b><%= link_to current_user.full_name, user_path(current_user) %></b></p>
-          <%= f.submit nil, :class => 'btn btn-primary' %>
-        </div>
+      <div class='span2' style='text-align: center'>
+        <%= image_tag avatar_url(current_user, 64), class: 'img-polaroid' %>
+        <p><b><%= link_to current_user.full_name, user_path(current_user) %></b></p>
+        <%= f.submit nil, :class => 'btn btn-primary', data: { disable_with: t('view.disable_with') } %>
+      </div>
 
     <% else %>
       <div id='commenter-info', class='span6'>
@@ -57,20 +55,10 @@
         <%= link_to current_user.full_name, user_path(current_user) %>
 
         <span class='pull-left'>
-          <%= f.submit nil, :class => 'btn btn-primary' %>
+          <%= f.submit nil, :class => 'btn btn-primary', data: { disable_with: t('view.disable_with') } %>
         </span>
       </div>
-
-      <%= f.input :name, readonly: true, as: :hidden,
-        input_html: {value: current_user.full_name, class: "span5"} %>
-      <%= f.input :email, readonly: true, as: :hidden,
-        input_html: {value: current_user.email, class: "span5"} %>
-      <%= f.input :website, readonly: true, as: :hidden,
-        input_html: {value: current_user.website, class: "span5"} %>
-      <%= f.input :user_id, as: :hidden,
-        input_html: {value: current_user.id} %>
     <% end %>
 
   </div>
 <% end %>
-</div>
