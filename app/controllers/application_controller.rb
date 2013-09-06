@@ -19,9 +19,8 @@ class ApplicationController < ActionController::Base
     user.increment! :user_rate, rate_weight
   end
 
-  def record_activity(note, link=nil)
+  def record_activity(note)
     @activity = ActivityLog.new
-    @activity.note_link = link
     @activity.user = current_user
     @activity.note = note
     @activity.browser = request.env['HTTP_USER_AGENT']
@@ -30,5 +29,11 @@ class ApplicationController < ActionController::Base
     @activity.action = action_name
     @activity.params = params.inspect
     @activity.save
+  end
+
+  def share_by_mail
+    @share_by_mail = ShareByMail.new(current_user)
+    @share_by_mail.textcaptcha
+    bypass_captcha_or_not @share_by_mail
   end
 end

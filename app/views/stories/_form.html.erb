@@ -8,7 +8,10 @@
               placeholder: t('.source_placeholder')
               %>
   <%= f.input :content,
-              input_html: {rows: 15, class: "span6", 'data-trigger' => "focus"},
+              input_html: {rows: 15,
+                            class: "span6",
+                            'data-trigger' => "focus",
+                            'data-maxlength' => Story::CONTENT_MAX_LENGTH},
               placeholder: t('.content_placeholder')%>
 
   <%= f.input :tag_names, input_html: {data: {tags: @story.tags}, class: "span6", value: ' '} %>
@@ -21,8 +24,8 @@
   <% end %>
 
   <div class="form-actions">
-    <%= f.submit nil, :class => 'btn btn-primary' %>
-    <%= f.submit t('.preview', :default => t("helpers.links.preview")), :class => 'btn btn-primary', name: "preview_button" %>
+    <%= f.submit nil, :class => 'btn btn-primary', data: { disable_with: t('view.disable_with') } %>
+    <%= f.submit t('.preview', :default => t("helpers.links.preview")), :class => 'btn btn-primary', name: "preview_button", data: { disable_with: t('view.disable_with') } %>
     <%= link_to t('.cancel', :default => t("helpers.links.cancel")),
                 stories_path, :class => 'btn' %>
   </div>

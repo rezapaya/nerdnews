@@ -19,7 +19,6 @@ class UsersController < ApplicationController
 
     respond_to do |format|
       format.html # index.html.erb
-      format.json { render json: @users, except: [:password_digest] }
       format.js
     end
   end
@@ -39,7 +38,6 @@ class UsersController < ApplicationController
 
     respond_to do |format|
       format.html # show.html.erb
-      format.json { render json: @user, except: [:password_digest] }
     end
   end
 
@@ -55,7 +53,6 @@ class UsersController < ApplicationController
 
     respond_to do |format|
       format.html # new.html.erb
-      format.json { render json: @user, except: [:password_digest] }
     end
   end
 
@@ -68,8 +65,7 @@ class UsersController < ApplicationController
   # POST /users.json
   def create
     if params[:cancel]
-      session.delete :authhash
-      session.delete :service_id
+      delete_sessions
       redirect_to root_url, flash: { error: t('controllers.users.create.flash.canceled') }
     else
       @user = User.new(params[:user])
@@ -83,8 +79,10 @@ class UsersController < ApplicationController
 
       respond_to do |format|
         if @user.save
+          record_activity %Q(کاربر #{view_context.link_to @user.full_name, user_path(@user)} در نردنیوز ثبت‌نام کرد)
           # send a welcome message and instruction for setting password
-          @user.delay.signup_confirmation
+          password_reset = PasswordReset.new(@user)
+          password_reset.delay.signup_confirmation
 
           # login with new user if confirm with openid
           if session[:authhash].present?
@@ -105,6 +103,21 @@ class UsersController < ApplicationController
     end
   end
 
+  def delete_sessions
+    session.delete :authhash
+    session.delete :service_id
+  end
+
+  def log_in(user)
+    cookies.permanent.signed[:user_id] = user.id if session[:authhash].present?
+  end
+
+  def build_identity_if_used_openid(user)
+    if session[:authhash].present?
+      user.identities.build(provider: session[:authhash][:provider], uid: session[:authhash][:uid])
+    end
+  end
+
   # PUT /users/1
   # PUT /users/1.json
   def update
@@ -115,12 +128,10 @@ class UsersController < ApplicationController
     else
       respond_to do |format|
         if @user.update_attributes(params[:user])
-          record_activity "پروفایل خود را به‌روز کردید"
+          record_activity %Q(پروفایل خود را ویرایش کرد)
           format.html { redirect_to @user, notice: t('controllers.users.update.flash.success') }
-          format.json { head :no_content }
         else
           format.html { render action: "edit" }
-          format.json { render json: @user.errors, status: :unprocessable_entity }
         end
       end
     end
@@ -134,7 +145,6 @@ class UsersController < ApplicationController
 
     respond_to do |format|
       format.html { redirect_to users_url }
-      format.json { head :no_content }
     end
   end
 
@@ -155,7 +165,7 @@ class UsersController < ApplicationController
   # GET /users/1/comments.json
   def comments
     @user = User.find(params[:id])
-    @comments = @user.comments.order('created_at desc').page(params[:page])
+    @comments = @user.comments.includes(:story).order('created_at desc').page(params[:page])
 
     respond_to do |format|
       format.html # comments.html.erb
@@ -168,7 +178,7 @@ class UsersController < ApplicationController
   # GET /users/1/favorites.json
   def favorites
     @user = User.find(params[:id])
-    @favorites = @user.votes.where(voteable_type: "Story").order('created_at desc').page(params[:page])
+    @favorites = @user.votes.where(voteable_type: "Story").includes(:voteable, :rating).order('created_at desc').page(params[:page])
 
     respond_to do |format|
       format.html # favorites.html.erb
@@ -187,11 +197,14 @@ class UsersController < ApplicationController
     end
   end
 
+  # Add a tag to users favorites
+  # Does it belongs to here or tags controller?
   def add_to_favorites
     @user = User.find(params[:id])
     @tag = Tag.find_by_name(params[:tag])
+
     respond_to do |format|
-      if @user.add_to_favorites(params[:tag])
+      if @user.favored_tags.save!(params[:tag])
         format.html { redirect_to root_path, notice: 'Added' }
         format.js
       else

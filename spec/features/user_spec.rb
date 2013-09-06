@@ -62,7 +62,13 @@ describe '/Users' do
     it 'can get users activity logs' do
       login @user
       visit activity_logs_user_path(@user)
-      page.should have_content "وارد نردنیوز شدید"
+      page.should have_content "وارد نردنیوز شد"
+    end
+
+    it "doesnt show email if email_visibility is flase" do
+      user = FactoryGirl.create(:user, email_visibility: false)
+      visit users_path(user)
+      page.should_not have_content user.email
     end
   end
 
@@ -105,7 +111,7 @@ describe '/Users' do
       story.tags << tag
       visit story_path(story)
       click_link "1"
-      @user.reload.favorite_tags_array.should be_include(tag.name)
+      @user.reload.favored_tags.to_a.should be_include(tag.name)
     end
   end
 
@@ -143,7 +149,6 @@ describe '/Users' do
         expect {
           fill_in 'story_title', with: @story.title
           fill_in 'story_content', with: @story.content
-          fill_in 'story_spam_answer', with: "four"
           click_button 'ایجاد'
         }.to change { @user.reload.user_rate }.by(0)
       end
@@ -154,7 +159,6 @@ describe '/Users' do
         expect {
           fill_in 'story_title', with: @story.title
           fill_in 'story_content', with: @story.content
-          fill_in 'story_spam_answer', with: "four"
           click_button 'ایجاد'
           logout
           login @approved_user
@@ -187,11 +191,11 @@ describe '/Users' do
       it 'shows the rating items for story' do
         find('button.btn-thumbs-up').click
         find("div.thumbs-up-list").should be_visible
-        find("div.thumbs-down-list").should_not be_visible
+        page.should_not have_css('div.thumbs-down-list')
 
         find('button.btn-thumbs-down').click
-        find("div.thumbs-up-list").should_not be_visible
         find("div.thumbs-down-list").should be_visible
+        page.should_not have_css('div.thumbs-up-list')
       end
 
       it 'rates a story successfully' do
@@ -220,12 +224,22 @@ describe '/Users' do
       end
 
       it 'wont let known user to vote after voting for first time' do
-        visit story_path @story
         page.should have_selector 'button.btn-thumbs-up'
         find('button.btn-thumbs-up').click
         click_link @pos.name
         visit story_path @story
         page.should_not have_selector 'button.btn-thumbs-up'
+      end
+
+      it 'should toggle list of voters' do
+        page.should have_selector 'button.btn-thumbs-up'
+        find('button.btn-thumbs-up').click
+        click_link @pos.name
+        visit story_path @story
+        click_link I18n.t('stories.story.voters')
+        within("div.voters") {page.should have_content @user.full_name}
+        click_link I18n.t('stories.story.voters')
+        page.should_not have_selector("div.voters", visible: true)
       end
     end
   end

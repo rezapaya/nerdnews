@@ -3,8 +3,8 @@ module StoriesHelper
     if cookies[:votes].present?
       cookie_array = YAML.load cookies[:votes]
       cookie_array.include? story.id
-    else current_user
-      story.user_voted?(current_user) or !story.approved?
+    elsif current_user
+      story.user_voted?(current_user)
     end
   end
 
@@ -24,5 +24,13 @@ module StoriesHelper
       end
     end
     return false
+  end
+
+  def positive_or_negative(vote)
+    if vote.rating.weight >= 0
+      "label-success"
+    else
+      "label-important"
+    end
   end
 end
